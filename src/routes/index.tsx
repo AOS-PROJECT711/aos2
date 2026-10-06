@@ -15,9 +15,11 @@ import {
   Moon,
   X,
   Clock,
+  GraduationCap,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/aos-logo.png";
+import { ClassroomPanel } from "@/components/ClassroomPanel";
 
 function ThemeToggle() {
   const [light, setLight] = useState(false);
@@ -79,7 +81,7 @@ function formatSize(b: number) {
 }
 
 function Index() {
-  const [tab, setTab] = useState<"send" | "receive">("send");
+  const [tab, setTab] = useState<"send" | "receive" | "classroom">("send");
   return (
     <div className="min-h-screen bg-background bg-grid">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
@@ -103,8 +105,8 @@ function Index() {
           Drop a photo, video, PDF or ZIP — up to 5 GB. Share the code. Open it on any device.
         </p>
 
-        <div className="mx-auto mt-10 grid max-w-xl grid-cols-2 gap-1 rounded-full border bg-card p-1">
-          {(["send", "receive"] as const).map((t) => (
+        <div className="mx-auto mt-10 grid max-w-xl grid-cols-3 gap-1 rounded-full border bg-card p-1">
+          {(["send", "receive", "classroom"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -112,14 +114,14 @@ function Index() {
                 tab === t ? "bg-brand text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {t === "send" ? <Upload className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+              {t === "send" ? <Upload className="h-4 w-4" /> : t === "receive" ? <Download className="h-4 w-4" /> : <GraduationCap className="h-4 w-4" />}
               {t}
             </button>
           ))}
         </div>
 
         <div className="mx-auto mt-4 max-w-xl rounded-3xl border bg-card p-8 shadow-glow">
-          {tab === "send" ? <SendPanel /> : <ReceivePanel />}
+          {tab === "send" ? <SendPanel /> : tab === "receive" ? <ReceivePanel /> : <ClassroomPanel />}
         </div>
 
         <div className="mx-auto mt-8 grid max-w-xl grid-cols-3 text-xs text-muted-foreground">
