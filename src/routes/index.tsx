@@ -66,15 +66,15 @@ function Index() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-xl px-6 pb-20 pt-10 text-center">
+      <main className="mx-auto max-w-3xl px-6 pb-20 pt-10 text-center">
         <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
           AUTHORISED <span className="text-brand">OPTICAL SERVICE</span>
         </h1>
-        <p className="mt-4 text-lg text-muted-foreground">
+        <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
           Drop a photo, video, PDF or ZIP — up to 5 GB. Share the code. Open it on any device.
         </p>
 
-        <div className="mt-10 grid grid-cols-2 gap-1 rounded-full border bg-card p-1">
+        <div className="mx-auto mt-10 grid max-w-xl grid-cols-2 gap-1 rounded-full border bg-card p-1">
           {(["send", "receive"] as const).map((t) => (
             <button
               key={t}
@@ -89,11 +89,11 @@ function Index() {
           ))}
         </div>
 
-        <div className="mt-4 rounded-3xl border bg-card p-8 shadow-glow">
+        <div className="mx-auto mt-4 max-w-xl rounded-3xl border bg-card p-8 shadow-glow">
           {tab === "send" ? <SendPanel /> : <ReceivePanel />}
         </div>
 
-        <div className="mt-8 grid grid-cols-3 text-xs text-muted-foreground">
+        <div className="mx-auto mt-8 grid max-w-xl grid-cols-3 text-xs text-muted-foreground">
           <Feature icon={<ShieldCheck className="h-5 w-5" />} label="Private storage" />
           <Feature icon={<Zap className="h-5 w-5" />} label="Direct upload" />
           <Feature icon={<InfinityIcon className="h-5 w-5" />} label="Never expires" />
