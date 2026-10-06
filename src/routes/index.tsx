@@ -337,7 +337,7 @@ function SendPanel() {
   );
 }
 
-type FoundFile = { name: string; size: number; url: string };
+type FoundFile = { name: string; size: number; url: string; viewUrl: string };
 
 function ReceivePanel() {
   const [code, setCode] = useState("");
