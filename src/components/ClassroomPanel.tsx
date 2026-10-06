@@ -111,7 +111,7 @@ export function ClassroomPanel() {
     }
   }
 
-  if (room) return <RoomView room={room} reload={() => load(room.code)} leave={() => setRoom(null)} />;
+  if (room) return <RoomView room={room} reload={() => load(room.code)} leave={() => { setRoom(null); setCreated(null); }} />;
 
   if (created)
     return (
