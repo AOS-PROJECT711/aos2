@@ -7,6 +7,19 @@ function randomCode(len: number) {
 }
 
 const codeSchema = z.string().trim().toUpperCase().min(6).max(12).regex(/^[A-Z0-9]+$/);
+const customCode = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z0-9]{6,10}$/, "Code must be 6-10 letters/numbers")
+  .refine((c) => /[A-Z]/.test(c) && /[0-9]/.test(c), "Code must contain letters and numbers");
+
+async function codeTaken(db: Awaited<ReturnType<typeof admin>>, code: string, exceptId?: string) {
+  let q = db.from("classrooms").select("id").or(`viewer_code.eq.${code},admin_code.eq.${code}`);
+  if (exceptId) q = q.neq("id", exceptId);
+  const { data } = await q.limit(1);
+  return (data ?? []).length > 0;
+}
 
 async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -21,18 +34,20 @@ async function findByAdminCode(adminCode: string) {
 }
 
 export const createClassroom = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ name: z.string().trim().min(1).max(80) }).parse(d))
+  .inputValidator((d) => z.object({ name: z.string().trim().min(1).max(80), adminCode: customCode }).parse(d))
   .handler(async ({ data }) => {
     const db = await admin();
-    const viewer_code = randomCode(6);
-    const admin_code = randomCode(10);
+    if (await codeTaken(db, data.adminCode)) throw new Error("That admin code is already used. Pick another.");
+    let viewer_code = randomCode(6);
+    while (await codeTaken(db, viewer_code)) viewer_code = randomCode(6);
+    const admin_code = data.adminCode;
     const { error } = await db.from("classrooms").insert({ name: data.name, viewer_code, admin_code });
     if (error) throw new Error("Could not create classroom");
     return { viewerCode: viewer_code, adminCode: admin_code };
   });
 
 export const openClassroom = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ code: codeSchema }).parse(d))
+  .inputValidator((d) => z.object({ code: codeSchema, name: z.string().trim().max(80).optional() }).parse(d))
   .handler(async ({ data }) => {
     const db = await admin();
     const { data: room } = await db
@@ -42,6 +57,7 @@ export const openClassroom = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!room) return { found: false as const };
     const isAdmin = room.admin_code === data.code;
+    if (isAdmin && (data.name ?? "").toLowerCase() !== room.name.trim().toLowerCase()) return { found: false as const };
     const { data: rows } = await db
       .from("classroom_files")
       .select("id, file_path, file_name, file_size, created_at")
@@ -132,5 +148,15 @@ export const renameClassroom = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { db, classroomId } = await findByAdminCode(data.adminCode);
     await db.from("classrooms").update({ name: data.name }).eq("id", classroomId);
+    return { ok: true };
+  });
+
+export const changeViewerCode = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ adminCode: codeSchema, viewerCode: customCode }).parse(d))
+  .handler(async ({ data }) => {
+    const { db, classroomId } = await findByAdminCode(data.adminCode);
+    if (await codeTaken(db, data.viewerCode, classroomId) || data.viewerCode === data.adminCode)
+      throw new Error("That code is already used. Pick another.");
+    await db.from("classrooms").update({ viewer_code: data.viewerCode }).eq("id", classroomId);
     return { ok: true };
   });

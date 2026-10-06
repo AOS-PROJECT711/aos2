@@ -22,6 +22,7 @@ import {
   renameClassroomFile,
   deleteClassroomFile,
   renameClassroom,
+  changeViewerCode,
 } from "@/lib/classroom.functions";
 
 type Room = {
@@ -74,14 +75,17 @@ export function ClassroomPanel() {
   const [mode, setMode] = useState<"join" | "create">("join");
   const [name, setName] = useState("AOS Classroom");
   const [code, setCode] = useState("");
+  const [role, setRole] = useState<"student" | "admin">("student");
+  const [loginName, setLoginName] = useState("");
+  const [newAdmin, setNewAdmin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState<{ viewerCode: string; adminCode: string } | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
 
-  async function load(c: string) {
-    const res = await open({ data: { code: c } });
-    if (!res.found) throw new Error("No classroom found for that code.");
+  async function load(c: string, n?: string) {
+    const res = await open({ data: { code: c, name: n } });
+    if (!res.found) throw new Error(n !== undefined ? "Classroom name or admin code is wrong." : "No classroom found for that code.");
     setRoom({ code: c, isAdmin: res.isAdmin, name: res.name, viewerCode: res.viewerCode, files: res.files });
   }
 
@@ -90,9 +94,9 @@ export function ClassroomPanel() {
     setBusy(true);
     setError("");
     try {
-      setCreated(await create({ data: { name } }));
-    } catch {
-      setError("Could not create classroom.");
+      setCreated(await create({ data: { name, adminCode: newAdmin } }));
+    } catch (err) {
+      setError(err instanceof Error && err.message.includes("code") ? err.message : "Could not create classroom.");
     } finally {
       setBusy(false);
     }
@@ -103,7 +107,7 @@ export function ClassroomPanel() {
     setBusy(true);
     setError("");
     try {
-      await load(code.toUpperCase());
+      await load(code.toUpperCase(), role === "admin" ? loginName.trim() : undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open classroom.");
     } finally {
@@ -111,7 +115,14 @@ export function ClassroomPanel() {
     }
   }
 
-  if (room) return <RoomView room={room} reload={() => load(room.code)} leave={() => { setRoom(null); setCreated(null); }} />;
+  if (room)
+    return (
+      <RoomView
+        room={room}
+        reload={(n) => load(room.code, room.isAdmin ? (n ?? room.name) : undefined)}
+        leave={() => { setRoom(null); setCreated(null); }}
+      />
+    );
 
   if (created)
     return (
@@ -124,7 +135,7 @@ export function ClassroomPanel() {
           onClick={async () => {
             setBusy(true);
             try {
-              await load(created.adminCode);
+              await load(created.adminCode, name.trim());
             } finally {
               setBusy(false);
             }
@@ -157,7 +168,25 @@ export function ClassroomPanel() {
 
       {mode === "join" ? (
         <form onSubmit={onJoin}>
-          <label className="text-sm text-muted-foreground">Receiver code or admin code</label>
+          <div className="mb-4 flex justify-center gap-4 text-sm">
+            {(["student", "admin"] as const).map((r) => (
+              <label key={r} className="flex items-center gap-1.5">
+                <input type="radio" checked={role === r} onChange={() => setRole(r)} />
+                {r === "student" ? "Student" : "Admin"}
+              </label>
+            ))}
+          </div>
+          {role === "admin" && (
+            <>
+              <label className="text-sm text-muted-foreground">Classroom name</label>
+              <input
+                value={loginName}
+                onChange={(e) => setLoginName(e.target.value.slice(0, 80))}
+                className="mt-2 mb-4 w-full rounded-2xl border bg-background/40 px-4 py-3 text-center text-lg font-semibold outline-none focus:border-primary"
+              />
+            </>
+          )}
+          <label className="text-sm text-muted-foreground">{role === "admin" ? "Admin code" : "Receiver code"}</label>
           <input
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10).toUpperCase())}
@@ -165,7 +194,7 @@ export function ClassroomPanel() {
             className="mt-3 w-full rounded-2xl border bg-background/40 py-4 text-center font-mono text-2xl font-bold tracking-[0.3em] outline-none focus:border-primary"
           />
           <button
-            disabled={code.length < 6 || busy}
+            disabled={code.length < 6 || busy || (role === "admin" && !loginName.trim())}
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />} Open classroom
@@ -179,8 +208,15 @@ export function ClassroomPanel() {
             onChange={(e) => setName(e.target.value.slice(0, 80))}
             className="mt-3 w-full rounded-2xl border bg-background/40 px-4 py-3 text-center text-lg font-semibold outline-none focus:border-primary"
           />
+          <label className="mt-4 block text-sm text-muted-foreground">Your admin code (6–10, letters + numbers)</label>
+          <input
+            value={newAdmin}
+            onChange={(e) => setNewAdmin(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10).toUpperCase())}
+            placeholder="TEACH123"
+            className="mt-3 w-full rounded-2xl border bg-background/40 py-3 text-center font-mono text-xl font-bold tracking-[0.3em] outline-none focus:border-primary"
+          />
           <button
-            disabled={!name.trim() || busy}
+            disabled={!name.trim() || busy || !/^(?=.*[A-Z])(?=.*[0-9])[A-Z0-9]{6,10}$/.test(newAdmin)}
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3 font-semibold text-primary-foreground disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create classroom
@@ -192,22 +228,23 @@ export function ClassroomPanel() {
   );
 }
 
-function RoomView({ room, reload, leave }: { room: Room; reload: () => Promise<void>; leave: () => void }) {
+function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string) => Promise<void>; leave: () => void }) {
   const getUrl = useServerFn(getClassroomUploadUrl);
   const addFile = useServerFn(addClassroomFile);
   const renameFile = useServerFn(renameClassroomFile);
   const delFile = useServerFn(deleteClassroomFile);
   const renameRoom = useServerFn(renameClassroom);
+  const setViewer = useServerFn(changeViewerCode);
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
-  async function run(label: string, fn: () => Promise<unknown>) {
+  async function run(label: string, fn: () => Promise<unknown>, newName?: string) {
     setBusy(label);
     setError("");
     try {
       await fn();
-      await reload();
+      await reload(newName);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -247,7 +284,7 @@ function RoomView({ room, reload, leave }: { room: Room; reload: () => Promise<v
               aria-label="Rename classroom"
               onClick={() => {
                 const n = prompt("New classroom name", room.name)?.trim();
-                if (n) run("rename", () => renameRoom({ data: { adminCode: room.code, name: n } }));
+                if (n) run("rename", () => renameRoom({ data: { adminCode: room.code, name: n } }), n);
               }}
               className="rounded-full border p-2 text-muted-foreground hover:text-foreground"
             >
@@ -265,6 +302,17 @@ function RoomView({ room, reload, leave }: { room: Room; reload: () => Promise<v
           {room.viewerCode && (
             <CopyCode label="Receiver code — share with students" code={room.viewerCode} icon={<Users className="h-5 w-5" />} />
           )}
+          <button
+            onClick={() => {
+              const v = prompt("New receiver code (6–10 letters + numbers)", room.viewerCode ?? "")?.trim().toUpperCase();
+              if (!v) return;
+              if (!/^(?=.*[A-Z])(?=.*[0-9])[A-Z0-9]{6,10}$/.test(v)) return setError("Code must be 6–10 characters with letters and numbers.");
+              run("viewer", () => setViewer({ data: { adminCode: room.code, viewerCode: v } }));
+            }}
+            className="w-full rounded-full border py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Change receiver code
+          </button>
           <CopyCode label="Admin code — keep private" code={room.code} icon={<KeyRound className="h-5 w-5" />} />
           <button
             onClick={() => input.current?.click()}
