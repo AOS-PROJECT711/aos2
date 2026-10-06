@@ -397,6 +397,30 @@ function ReceivePanel() {
               ? `expires at ${new Date(found.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
               : "never expires"}
           </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("view")}
+              className={`rounded-full border py-2 text-sm font-semibold transition ${
+                mode === "view"
+                  ? "border-transparent bg-brand text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              View only
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("download")}
+              className={`rounded-full border py-2 text-sm font-semibold transition ${
+                mode === "download"
+                  ? "border-transparent bg-brand text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Download
+            </button>
+          </div>
           {found.files.map((f) => (
             <div key={f.url} className="flex items-center gap-3 rounded-2xl border bg-background/40 p-3">
               <FileIcon className="h-7 w-7 shrink-0 text-primary" />
@@ -404,14 +428,24 @@ function ReceivePanel() {
                 <div className="truncate text-sm font-semibold">{f.name}</div>
                 <div className="text-xs text-muted-foreground">{formatSize(f.size)}</div>
               </div>
-              {f.viewUrl && (
-                <a href={f.viewUrl} target="_blank" rel="noreferrer" className="rounded-full border px-4 py-2 text-sm font-semibold">
-                  View
-                </a>
+              {mode === "view" ? (
+                f.viewUrl && (
+                  <a href={f.viewUrl} target="_blank" rel="noreferrer" className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
+                    View
+                  </a>
+                )
+              ) : (
+                <>
+                  {f.viewUrl && (
+                    <a href={f.viewUrl} target="_blank" rel="noreferrer" className="rounded-full border px-4 py-2 text-sm font-semibold">
+                      View
+                    </a>
+                  )}
+                  <a href={f.url} className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
+                    Download
+                  </a>
+                </>
               )}
-              <a href={f.url} className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
-                Download
-              </a>
             </div>
           ))}
         </div>
