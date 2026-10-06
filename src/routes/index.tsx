@@ -125,7 +125,7 @@ function Index() {
         <div className="mx-auto mt-8 grid max-w-xl grid-cols-3 text-xs text-muted-foreground">
           <Feature icon={<ShieldCheck className="h-5 w-5" />} label="Private storage" />
           <Feature icon={<Zap className="h-5 w-5" />} label="Direct upload" />
-          <Feature icon={<InfinityIcon className="h-5 w-5" />} label="Never expires" />
+          <Feature icon={<InfinityIcon className="h-5 w-5" />} label="Auto-expiry" />
         </div>
       </main>
     </div>
