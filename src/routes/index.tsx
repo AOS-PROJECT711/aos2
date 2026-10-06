@@ -364,7 +364,8 @@ function ReceivePanel() {
       const { data: signed } = await supabase.storage
         .from("shares")
         .createSignedUrl(row.file_path, 3600, { download: row.file_name });
-      if (signed) files.push({ name: row.file_name, size: row.file_size, url: signed.signedUrl });
+      const { data: view } = await supabase.storage.from("shares").createSignedUrl(row.file_path, 3600);
+      if (signed) files.push({ name: row.file_name, size: row.file_size, url: signed.signedUrl, viewUrl: view?.signedUrl ?? "" });
     }
     setBusy(false);
     if (!files.length) return setError("Could not open these files.");
@@ -402,6 +403,11 @@ function ReceivePanel() {
                 <div className="truncate text-sm font-semibold">{f.name}</div>
                 <div className="text-xs text-muted-foreground">{formatSize(f.size)}</div>
               </div>
+              {f.viewUrl && (
+                <a href={f.viewUrl} target="_blank" rel="noreferrer" className="rounded-full border px-4 py-2 text-sm font-semibold">
+                  View
+                </a>
+              )}
               <a href={f.url} className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
                 Download
               </a>
