@@ -343,6 +343,7 @@ function ReceivePanel() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [mode, setMode] = useState<"view" | "download">("download");
   const [found, setFound] = useState<{ files: FoundFile[]; expiresAt: string | null } | null>(null);
 
   async function find(e: React.FormEvent) {
