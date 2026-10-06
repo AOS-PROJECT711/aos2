@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Upload,
   Download,
@@ -11,9 +11,35 @@ import {
   Check,
   FileIcon,
   Loader2,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/aos-logo.png";
+
+function ThemeToggle() {
+  const [light, setLight] = useState(false);
+  useEffect(() => {
+    const saved = localStorage.getItem("aos-theme") === "light";
+    setLight(saved);
+    document.documentElement.classList.toggle("light", saved);
+  }, []);
+  const toggle = () => {
+    const next = !light;
+    setLight(next);
+    document.documentElement.classList.toggle("light", next);
+    localStorage.setItem("aos-theme", next ? "light" : "dark");
+  };
+  return (
+    <button
+      onClick={toggle}
+      aria-label={light ? "Switch to night theme" : "Switch to day theme"}
+      className="flex h-9 w-9 items-center justify-center rounded-full border bg-card text-foreground transition hover:bg-muted"
+    >
+      {light ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+    </button>
+  );
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -64,6 +90,7 @@ function Index() {
             </div>
           </div>
         </div>
+        <ThemeToggle />
       </header>
 
       <main className="mx-auto max-w-3xl px-6 pb-20 pt-10 text-center">
