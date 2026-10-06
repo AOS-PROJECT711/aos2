@@ -68,7 +68,8 @@ export const openClassroom = createServerFn({ method: "POST" })
         const { data: s } = await db.storage
           .from("classrooms")
           .createSignedUrl(r.file_path, 3600, { download: r.file_name });
-        return { id: r.id, name: r.file_name, size: r.file_size, createdAt: r.created_at, url: s?.signedUrl ?? "" };
+        const { data: v } = await db.storage.from("classrooms").createSignedUrl(r.file_path, 3600);
+        return { id: r.id, name: r.file_name, size: r.file_size, createdAt: r.created_at, url: s?.signedUrl ?? "", viewUrl: v?.signedUrl ?? "" };
       }),
     );
     return {

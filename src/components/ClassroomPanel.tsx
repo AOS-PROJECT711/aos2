@@ -30,7 +30,7 @@ type Room = {
   isAdmin: boolean;
   name: string;
   viewerCode: string | null;
-  files: { id: string; name: string; size: number; createdAt: string; url: string }[];
+  files: { id: string; name: string; size: number; createdAt: string; url: string; viewUrl: string }[];
 };
 
 function formatSize(b: number) {
@@ -378,6 +378,9 @@ function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string)
                   </button>
                 </>
               )}
+              <a href={f.viewUrl} target="_blank" rel="noreferrer" className="rounded-full border px-3 py-1.5 text-xs font-semibold">
+                View
+              </a>
               <a href={f.url} className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground">
                 Download
               </a>
