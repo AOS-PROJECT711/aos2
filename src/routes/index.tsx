@@ -128,7 +128,7 @@ function SendPanel() {
       const code = makeCode();
       const path = `${code}/${file.name}`;
       const { error: upErr } = await supabase.storage.from("shares").upload(path, file, {
-        contentType: file.type || undefined,
+        contentType: file.type || "application/octet-stream",
       });
       if (upErr) throw upErr;
       const { error: dbErr } = await supabase.from("shares").insert({
