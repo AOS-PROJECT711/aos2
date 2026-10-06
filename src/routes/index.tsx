@@ -176,7 +176,7 @@ function SendPanel() {
       const code = makeCode();
       const expiresAt = expiry ? new Date(Date.now() + expiry * 60_000) : null;
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+        const file = files[i]!;
         const path = `${code}/${i}-${file.name}`;
         const { error: upErr } = await supabase.storage.from("shares").upload(path, file, {
           contentType: file.type || "application/octet-stream",
@@ -366,7 +366,7 @@ function ReceivePanel() {
     }
     setBusy(false);
     if (!files.length) return setError("Could not open these files.");
-    setFound({ files, expiresAt: data[0].expires_at });
+    setFound({ files, expiresAt: data[0]?.expires_at ?? null });
   }
 
   return (
