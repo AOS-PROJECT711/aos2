@@ -13,6 +13,8 @@ import {
   Loader2,
   Sun,
   Moon,
+  X,
+  Clock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/aos-logo.png";
@@ -123,7 +125,7 @@ function Index() {
         <div className="mx-auto mt-8 grid max-w-xl grid-cols-3 text-xs text-muted-foreground">
           <Feature icon={<ShieldCheck className="h-5 w-5" />} label="Private storage" />
           <Feature icon={<Zap className="h-5 w-5" />} label="Direct upload" />
-          <Feature icon={<InfinityIcon className="h-5 w-5" />} label="Never expires" />
+          <Feature icon={<InfinityIcon className="h-5 w-5" />} label="Auto-expiry" />
         </div>
       </main>
     </div>
@@ -139,34 +141,60 @@ function Feature({ icon, label }: { icon: React.ReactNode; label: string }) {
   );
 }
 
+const EXPIRY = [
+  { label: "5 min", minutes: 5 },
+  { label: "10 min", minutes: 10 },
+  { label: "15 min", minutes: 15 },
+  { label: "Never", minutes: 0 },
+];
+
 function SendPanel() {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [expiry, setExpiry] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ code: string; name: string } | null>(null);
+  const [result, setResult] = useState<{ code: string; count: number; expiresAt: Date | null } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  async function upload(file: File) {
+  function add(list: FileList | null) {
+    if (!list) return;
     setError("");
-    if (file.size > MAX) return setError("File is larger than 5 GB.");
+    const incoming = Array.from(list);
+    if (incoming.some((f) => f.size > MAX)) setError("Files larger than 5 GB were skipped.");
+    setFiles((prev) => [...prev, ...incoming.filter((f) => f.size <= MAX)]);
+  }
+
+  async function send() {
+    if (!files.length) return;
+    setError("");
     setBusy(true);
+    setProgress(0);
     try {
       const code = makeCode();
-      const path = `${code}/${file.name}`;
-      const { error: upErr } = await supabase.storage.from("shares").upload(path, file, {
-        contentType: file.type || "application/octet-stream",
-      });
-      if (upErr) throw upErr;
-      const { error: dbErr } = await supabase.from("shares").insert({
-        code,
-        file_path: path,
-        file_name: file.name,
-        file_size: file.size,
-        mime_type: file.type || null,
-      });
-      if (dbErr) throw dbErr;
-      setResult({ code, name: file.name });
+      const expiresAt = expiry ? new Date(Date.now() + expiry * 60_000) : null;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]!;
+        const path = `${code}/${i}-${file.name}`;
+        const { error: upErr } = await supabase.storage.from("shares").upload(path, file, {
+          contentType: file.type || "application/octet-stream",
+        });
+        if (upErr) throw upErr;
+        const { error: dbErr } = await supabase.from("shares").insert({
+          code,
+          file_path: path,
+          file_name: file.name,
+          file_size: file.size,
+          mime_type: file.type || null,
+          expires_at: expiresAt?.toISOString() ?? null,
+        });
+        if (dbErr) throw dbErr;
+        setProgress(i + 1);
+      }
+      setResult({ code, count: files.length, expiresAt });
+      setFiles([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Please try again.");
     } finally {
@@ -177,8 +205,15 @@ function SendPanel() {
   if (result)
     return (
       <div>
-        <p className="text-sm text-muted-foreground">Your code for {result.name}</p>
+        <p className="text-sm text-muted-foreground">
+          Your code for {result.count} file{result.count > 1 ? "s" : ""}
+        </p>
         <div className="mt-4 font-mono text-5xl font-bold tracking-[0.3em] text-brand">{result.code}</div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {result.expiresAt
+            ? `Expires at ${result.expiresAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+            : "Never expires"}
+        </p>
         <div className="mt-6 flex justify-center gap-3">
           <button
             onClick={() => {
@@ -191,11 +226,8 @@ function SendPanel() {
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copied" : "Copy code"}
           </button>
-          <button
-            onClick={() => setResult(null)}
-            className="rounded-full border px-5 py-2 text-sm font-semibold"
-          >
-            Send another
+          <button onClick={() => setResult(null)} className="rounded-full border px-5 py-2 text-sm font-semibold">
+            Send more
           </button>
         </div>
       </div>
@@ -213,64 +245,128 @@ function SendPanel() {
         onDrop={(e) => {
           e.preventDefault();
           setDrag(false);
-          const f = e.dataTransfer.files[0];
-          if (f) upload(f);
+          add(e.dataTransfer.files);
         }}
         disabled={busy}
-        className={`flex w-full flex-col items-center rounded-2xl border-2 border-dashed px-6 py-14 transition ${
-          drag ? "border-primary bg-muted" : "border-input bg-background/40"
-        }`}
+        className={`flex w-full flex-col items-center rounded-2xl border-2 border-dashed px-6 transition ${
+          files.length ? "py-8" : "py-14"
+        } ${drag ? "border-primary bg-muted" : "border-input bg-background/40"}`}
       >
-        {busy ? (
-          <Loader2 className="h-9 w-9 animate-spin text-primary" />
-        ) : (
-          <CloudUpload className="h-9 w-9 text-primary" />
-        )}
-        <span className="mt-4 font-semibold">{busy ? "Uploading…" : "Drop a file or tap to choose"}</span>
-        <span className="mt-2 text-sm text-muted-foreground">Photos, videos, PDF, ZIP — up to 5 GB</span>
+        <CloudUpload className="h-9 w-9 text-primary" />
+        <span className="mt-4 font-semibold">
+          {files.length ? "Add more files" : "Drop files or tap to choose"}
+        </span>
+        <span className="mt-2 text-sm text-muted-foreground">Photos, videos, PDF, ZIP — up to 5 GB each</span>
       </button>
       <input
         ref={input}
         type="file"
         hidden
+        multiple
         accept="image/*,video/*,application/pdf,.zip,application/zip"
         onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) upload(f);
+          add(e.target.files);
           e.target.value = "";
         }}
       />
+
+      {files.length > 0 && (
+        <>
+          <ul className="mt-4 max-h-56 space-y-2 overflow-y-auto text-left">
+            {files.map((f, i) => (
+              <li key={i} className="flex items-center gap-3 rounded-xl border bg-background/40 px-3 py-2">
+                <FileIcon className="h-5 w-5 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1 truncate text-sm">{f.name}</span>
+                <span className="text-xs text-muted-foreground">{formatSize(f.size)}</span>
+                {!busy && (
+                  <button
+                    aria-label={`Remove ${f.name}`}
+                    onClick={() => setFiles((p) => p.filter((_, j) => j !== i))}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-5 text-left">
+            <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" /> Code expires in
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {EXPIRY.map((o) => (
+                <button
+                  key={o.minutes}
+                  onClick={() => setExpiry(o.minutes)}
+                  disabled={busy}
+                  className={`rounded-full border py-2 text-sm font-semibold transition ${
+                    expiry === o.minutes
+                      ? "border-transparent bg-brand text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={send}
+            disabled={busy}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3 font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {busy ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Uploading {progress}/{files.length}…
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" /> Send {files.length} file{files.length > 1 ? "s" : ""}
+              </>
+            )}
+          </button>
+        </>
+      )}
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
     </div>
   );
 }
 
+type FoundFile = { name: string; size: number; url: string };
+
 function ReceivePanel() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [file, setFile] = useState<{ name: string; size: number; url: string } | null>(null);
+  const [found, setFound] = useState<{ files: FoundFile[]; expiresAt: string | null } | null>(null);
 
   async function find(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setFile(null);
+    setFound(null);
     setBusy(true);
     const { data, error: err } = await supabase
       .from("shares")
-      .select("file_path, file_name, file_size")
+      .select("file_path, file_name, file_size, expires_at")
       .eq("code", code.toUpperCase())
-      .maybeSingle();
-    if (err || !data) {
+      .order("created_at");
+    if (err || !data?.length) {
       setBusy(false);
-      return setError("No file found for that code.");
+      return setError("No files found — the code is wrong or has expired.");
     }
-    const { data: signed } = await supabase.storage
-      .from("shares")
-      .createSignedUrl(data.file_path, 3600, { download: data.file_name });
+    const files: FoundFile[] = [];
+    for (const row of data) {
+      const { data: signed } = await supabase.storage
+        .from("shares")
+        .createSignedUrl(row.file_path, 3600, { download: row.file_name });
+      if (signed) files.push({ name: row.file_name, size: row.file_size, url: signed.signedUrl });
+    }
     setBusy(false);
-    if (!signed) return setError("Could not open this file.");
-    setFile({ name: data.file_name, size: data.file_size, url: signed.signedUrl });
+    if (!files.length) return setError("Could not open these files.");
+    setFound({ files, expiresAt: data[0]?.expires_at ?? null });
   }
 
   return (
@@ -286,19 +382,29 @@ function ReceivePanel() {
         disabled={code.length !== 6 || busy}
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3 font-semibold text-primary-foreground disabled:opacity-50"
       >
-        {busy && <Loader2 className="h-4 w-4 animate-spin" />} Find file
+        {busy && <Loader2 className="h-4 w-4 animate-spin" />} Find files
       </button>
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
-      {file && (
-        <div className="mt-6 flex items-center gap-3 rounded-2xl border bg-background/40 p-4 text-left">
-          <FileIcon className="h-8 w-8 shrink-0 text-primary" />
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-semibold">{file.name}</div>
-            <div className="text-xs text-muted-foreground">{formatSize(file.size)}</div>
-          </div>
-          <a href={file.url} className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
-            Download
-          </a>
+      {found && (
+        <div className="mt-6 space-y-2 text-left">
+          <p className="text-xs text-muted-foreground">
+            {found.files.length} file{found.files.length > 1 ? "s" : ""} ·{" "}
+            {found.expiresAt
+              ? `expires at ${new Date(found.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+              : "never expires"}
+          </p>
+          {found.files.map((f) => (
+            <div key={f.url} className="flex items-center gap-3 rounded-2xl border bg-background/40 p-3">
+              <FileIcon className="h-7 w-7 shrink-0 text-primary" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{f.name}</div>
+                <div className="text-xs text-muted-foreground">{formatSize(f.size)}</div>
+              </div>
+              <a href={f.url} className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
+                Download
+              </a>
+            </div>
+          ))}
         </div>
       )}
     </form>

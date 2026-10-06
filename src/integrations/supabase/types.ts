@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          expires_at: string | null
           file_name: string
           file_path: string
           file_size: number
@@ -27,6 +28,7 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
+          expires_at?: string | null
           file_name: string
           file_path: string
           file_size?: number
@@ -36,6 +38,7 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
+          expires_at?: string | null
           file_name?: string
           file_path?: string
           file_size?: number
