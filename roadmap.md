@@ -1,3 +1,3 @@
 # Roadmap
 
-- [ ] Add "View only" option to the Receive flow (clarifying with user: sender-side "view only" toggle vs receiver-side mode)
+- [x] Add "View only" / "Download" toggle to the Receive panel (receiver-side mode switch)
