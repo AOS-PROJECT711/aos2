@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      classroom_files: {
+        Row: {
+          classroom_id: string
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          mime_type: string | null
+        }
+        Insert: {
+          classroom_id: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          mime_type?: string | null
+        }
+        Update: {
+          classroom_id?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          mime_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classroom_files_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: false
+            referencedRelation: "classrooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classrooms: {
+        Row: {
+          admin_code: string
+          created_at: string
+          id: string
+          name: string
+          viewer_code: string
+        }
+        Insert: {
+          admin_code: string
+          created_at?: string
+          id?: string
+          name: string
+          viewer_code: string
+        }
+        Update: {
+          admin_code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          viewer_code?: string
+        }
+        Relationships: []
+      }
       shares: {
         Row: {
           code: string
