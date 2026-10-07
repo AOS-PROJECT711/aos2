@@ -266,7 +266,7 @@ function SendPanel() {
         type="file"
         hidden
         multiple
-        accept="image/*,video/*,application/pdf,.zip,application/zip"
+        accept="image/*,video/*,audio/*,application/pdf,.zip,application/zip,.ppt,.pptx,.doc,.docx,.xls,.xlsx"
         onChange={(e) => {
           add(e.target.files);
           e.target.value = "";
