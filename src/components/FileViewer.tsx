@@ -38,7 +38,7 @@ function PdfPages({ data }: { data: ArrayBuffer }) {
         }
       } catch (e) {
         console.error("pdf", e);
-        setErr("Could not open this PDF.");
+        setErr("Could not open this PDF. " + String(e));
       }
     })();
     return () => {
