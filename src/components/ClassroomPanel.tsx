@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { FileViewer } from "@/components/FileViewer";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Check,
@@ -230,6 +231,7 @@ export function ClassroomPanel() {
 
 function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string) => Promise<void>; leave: () => void }) {
   const getUrl = useServerFn(getClassroomUploadUrl);
+  const [viewing, setViewing] = useState<{ url: string; name: string } | null>(null);
   const addFile = useServerFn(addClassroomFile);
   const renameFile = useServerFn(renameClassroomFile);
   const delFile = useServerFn(deleteClassroomFile);
@@ -378,9 +380,9 @@ function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string)
                   </button>
                 </>
               )}
-              <a href={f.viewUrl} target="_blank" rel="noreferrer" className="rounded-full border px-3 py-1.5 text-xs font-semibold">
+              <button type="button" onClick={() => setViewing({ url: f.viewUrl, name: f.name })} className="rounded-full border px-3 py-1.5 text-xs font-semibold">
                 View
-              </a>
+              </button>
               <a href={f.url} className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground">
                 Download
               </a>
