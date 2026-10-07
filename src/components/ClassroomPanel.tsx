@@ -391,6 +391,7 @@ function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string)
         </ul>
       )}
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+      {viewing && <FileViewer url={viewing.url} name={viewing.name} onClose={() => setViewing(null)} />}
     </div>
   );
 }
