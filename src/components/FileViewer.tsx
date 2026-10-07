@@ -36,7 +36,8 @@ function PdfPages({ data }: { data: ArrayBuffer }) {
           el.appendChild(canvas);
           await page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
         }
-      } catch {
+      } catch (e) {
+        console.error("pdf", e);
         setErr("Could not open this PDF.");
       }
     })();
