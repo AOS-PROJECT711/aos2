@@ -34,7 +34,7 @@ function PdfPages({ data }: { data: ArrayBuffer }) {
           canvas.style.width = `${width}px`;
           canvas.className = "mx-auto mb-3 rounded bg-white shadow";
           el.appendChild(canvas);
-          await page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
+          await page.render({ canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
         }
       } catch (e) {
         console.error("pdf", e);
