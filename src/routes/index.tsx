@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/aos-logo.png";
 import { ClassroomPanel } from "@/components/ClassroomPanel";
+import { FileViewer } from "@/components/FileViewer";
 
 function ThemeToggle() {
   const [light, setLight] = useState(false);
@@ -265,7 +266,7 @@ function SendPanel() {
         type="file"
         hidden
         multiple
-        accept="image/*,video/*,application/pdf,.zip,application/zip"
+        accept="image/*,video/*,audio/*,application/pdf,.zip,application/zip,.ppt,.pptx,.doc,.docx,.xls,.xlsx"
         onChange={(e) => {
           add(e.target.files);
           e.target.value = "";
@@ -344,6 +345,7 @@ function ReceivePanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<"view" | "download">("download");
+  const [viewing, setViewing] = useState<FoundFile | null>(null);
   const [found, setFound] = useState<{ files: FoundFile[]; expiresAt: string | null } | null>(null);
 
   async function find(e: React.FormEvent) {
@@ -389,6 +391,7 @@ function ReceivePanel() {
         {busy && <Loader2 className="h-4 w-4 animate-spin" />} Find files
       </button>
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+      {viewing && <FileViewer url={viewing.viewUrl} name={viewing.name} onClose={() => setViewing(null)} />}
       {found && (
         <div className="mt-6 space-y-2 text-left">
           <p className="text-xs text-muted-foreground">
@@ -430,16 +433,16 @@ function ReceivePanel() {
               </div>
               {mode === "view" ? (
                 f.viewUrl && (
-                  <a href={f.viewUrl} target="_blank" rel="noreferrer" className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
+                  <button type="button" onClick={() => setViewing(f)} className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
                     View
-                  </a>
+                  </button>
                 )
               ) : (
                 <>
                   {f.viewUrl && (
-                    <a href={f.viewUrl} target="_blank" rel="noreferrer" className="rounded-full border px-4 py-2 text-sm font-semibold">
+                    <button type="button" onClick={() => setViewing(f)} className="rounded-full border px-4 py-2 text-sm font-semibold">
                       View
-                    </a>
+                    </button>
                   )}
                   <a href={f.url} className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
                     Download
