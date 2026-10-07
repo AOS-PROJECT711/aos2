@@ -18,7 +18,7 @@ function PdfPages({ data }: { data: ArrayBuffer }) {
         const pdfjs = await import("pdfjs-dist");
         const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
         pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-        const doc = await pdfjs.getDocument({ data: new Uint8Array(data) }).promise;
+        const doc = await pdfjs.getDocument({ data: new Uint8Array(data.slice(0)) }).promise;
         const el = box.current;
         if (!el) return;
         el.innerHTML = "";
@@ -36,9 +36,8 @@ function PdfPages({ data }: { data: ArrayBuffer }) {
           el.appendChild(canvas);
           await page.render({ canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
         }
-      } catch (e) {
-        console.error("pdf", e);
-        setErr("Could not open this PDF. " + String(e));
+      } catch {
+        setErr("Could not open this PDF.");
       }
     })();
     return () => {
