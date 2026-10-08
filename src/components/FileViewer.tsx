@@ -101,8 +101,12 @@ function PptxViewer({ url, name }: { url: string; name: string }) {
         dt.items.add(new File([blob], name, { type: mime }));
         input.files = dt.files;
         const $ = window.jQuery;
+        // scale slides to fit the screen width (slides render at 960px by default)
+        const avail = hostRef.current.parentElement?.clientWidth ?? 960;
+        const scale = Math.min(100, Math.floor((avail / 960) * 100));
         $(hostRef.current).pptxToHtml({
           fileInputId: "pptx-hidden-input",
+          slidesScale: String(scale),
           jsZipV2: false, // v2 is preloaded above; passing a URL makes pptxjs force-reload the page
           slideMode: false,
           keyBoardShortCut: false,
