@@ -52,7 +52,6 @@ function loadPptxjs() {
       loadCss(`${PPTX_BASE}/css/pptxjs.css`);
       loadCss(`${PPTX_BASE}/css/nv.d3.min.css`);
       await loadScript("https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js");
-      await loadScript("https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js");
       await loadScript(`${PPTX_BASE}/js/d3.min.js`);
       await loadScript(`${PPTX_BASE}/js/nv.d3.min.js`);
       await loadScript(`${PPTX_BASE}/js/filereader.min.js`);
@@ -97,6 +96,7 @@ function PptxViewer({ url, name }: { url: string; name: string }) {
         const $ = window.jQuery;
         $(hostRef.current).pptxToHtml({
           fileInputId: "pptx-hidden-input",
+          jsZipV2: "https://cdn.jsdelivr.net/npm/jszip@2.6.1/dist/jszip.min.js",
           slideMode: false,
           keyBoardShortCut: false,
           mediaProcess: true,
