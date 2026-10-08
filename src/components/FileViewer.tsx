@@ -85,13 +85,29 @@ function PptxViewer({ url, name }: { url: string; name: string }) {
         if (!res.ok) throw new Error("fetch failed");
         const blob = await res.blob();
         if (cancelled || !hostRef.current) return;
-        const file = new File([blob], name, { type: blob.type });
+        // pptxjs only reads from a file input — feed it a hidden one
+        const input = document.createElement("input");
+        input.type = "file";
+        input.id = "pptx-hidden-input";
+        input.style.display = "none";
+        hostRef.current.appendChild(input);
+        const dt = new DataTransfer();
+        dt.items.add(new File([blob], name, { type: blob.type }));
+        input.files = dt.files;
         const $ = window.jQuery;
-        $(hostRef.current).pptxToHtml(file, {
+        $(hostRef.current).pptxToHtml({
+          fileInputId: "pptx-hidden-input",
           slideMode: false,
           keyBoardShortCut: false,
           mediaProcess: true,
         });
+        input.dispatchEvent(new Event("change"));
+        // wait until slides are actually rendered
+        for (let i = 0; i < 60; i++) {
+          await new Promise((r) => setTimeout(r, 500));
+          if (cancelled) return;
+          if (hostRef.current && hostRef.current.querySelector(".slide")) break;
+        }
         if (!cancelled) setProgress(false);
       } catch (e) {
         console.error("pptx render failed:", e);
