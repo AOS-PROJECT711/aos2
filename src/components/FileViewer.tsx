@@ -401,6 +401,7 @@ export function FileViewer({ url, name, onClose }: { url: string; name: string; 
 
   let body: React.ReactNode;
   if (ext === "pdf") body = <PdfViewer url={url} />;
+  else if (ext === "pptx" || ext === "ppt") body = <PptxViewer url={url} name={name} />;
   else if (OFFICE.includes(ext))
     body = (
       <div className="relative h-full w-full">
