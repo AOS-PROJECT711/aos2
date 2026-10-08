@@ -137,7 +137,7 @@ function PptxViewer({ url, name }: { url: string; name: string }) {
           <Loader2 className="h-5 w-5 animate-spin" /> Opening presentation…
         </div>
       )}
-      <div ref={hostRef} className="pptx-host mx-auto" />
+      <div ref={hostRef} id="pptx-host" className="pptx-host mx-auto" />
     </div>
   );
 }
