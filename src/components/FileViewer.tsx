@@ -26,6 +26,133 @@ function loadPdfjs() {
   return pdfjsPromise;
 }
 
+// ---- PPTX rendering (pptxjs from CDN, renders slides as crisp HTML) ----
+const PPTX_BASE = "https://cdn.jsdelivr.net/gh/meshesha/PPTXjs@master";
+let pptxPromise: Promise<void> | null = null;
+
+function loadScript(src: string) {
+  return new Promise<void>((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(s);
+  });
+}
+function loadCss(href: string) {
+  const l = document.createElement("link");
+  l.rel = "stylesheet";
+  l.href = href;
+  document.head.appendChild(l);
+}
+
+function loadPptxjs() {
+  if (!pptxPromise) {
+    pptxPromise = (async () => {
+      loadCss(`${PPTX_BASE}/css/pptxjs.css`);
+      loadCss(`${PPTX_BASE}/css/nv.d3.min.css`);
+      await loadScript("https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js");
+      await loadScript(`${PPTX_BASE}/js/d3.min.js`);
+      await loadScript(`${PPTX_BASE}/js/nv.d3.min.js`);
+      await loadScript(`${PPTX_BASE}/js/filereader.min.js`);
+      // pptxjs needs JSZip v2 and force-reloads the page to get it — preload it and set its flag to skip the reload
+      await loadScript("https://cdn.jsdelivr.net/npm/jszip@2.6.1/dist/jszip.min.js");
+      localStorage.setItem("isPPTXjsReLoaded", "yes");
+      await loadScript(`${PPTX_BASE}/js/pptxjs.js`);
+    })().catch((e) => {
+      pptxPromise = null;
+      throw e;
+    });
+  }
+  return pptxPromise;
+}
+
+declare global {
+  interface Window {
+    jQuery?: any;
+  }
+}
+
+function PptxViewer({ url, name }: { url: string; name: string }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [err, setErr] = useState(false);
+  const [progress, setProgress] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await loadPptxjs();
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("fetch failed");
+        const blob = await res.blob();
+        if (cancelled || !hostRef.current) return;
+        // pptxjs only reads from a file input — feed it a hidden one
+        const input = document.createElement("input");
+        input.type = "file";
+        input.id = "pptx-hidden-input";
+        input.style.display = "none";
+        hostRef.current.appendChild(input);
+        // pptxjs only accepts the exact OOXML MIME type — force it from the extension
+        const mime = name.toLowerCase().endsWith(".pptx")
+          ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          : "application/vnd.ms-powerpoint";
+        const dt = new DataTransfer();
+        dt.items.add(new File([blob], name, { type: mime }));
+        input.files = dt.files;
+        const $ = window.jQuery;
+        // scale slides to fit the screen width (slides render at 960px by default)
+        const avail = hostRef.current.parentElement?.clientWidth ?? 960;
+        const scale = Math.min(100, Math.floor((avail / 960) * 100));
+        $(hostRef.current).pptxToHtml({
+          fileInputId: "pptx-hidden-input",
+          slidesScale: String(scale),
+          jsZipV2: false, // v2 is preloaded above; passing a URL makes pptxjs force-reload the page
+          slideMode: false,
+          keyBoardShortCut: false,
+          mediaProcess: true,
+        });
+        input.dispatchEvent(new Event("change"));
+        // wait until slides are actually rendered
+        for (let i = 0; i < 60; i++) {
+          await new Promise((r) => setTimeout(r, 500));
+          if (cancelled) return;
+          if (hostRef.current && hostRef.current.querySelector(".slide")) break;
+        }
+        if (!cancelled) setProgress(false);
+      } catch (e) {
+        console.error("pptx render failed:", e);
+        if (!cancelled) setErr(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [url, name]);
+
+  if (err) {
+    // fall back to Microsoft's online viewer
+    return (
+      <iframe
+        src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`}
+        title={name}
+        className="relative h-full w-full"
+      />
+    );
+  }
+
+  return (
+    <div className="relative h-full w-full overflow-auto bg-white">
+      {progress && (
+        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 text-sm text-neutral-600">
+          <Loader2 className="h-5 w-5 animate-spin" /> Opening presentation…
+        </div>
+      )}
+      <div ref={hostRef} id="pptx-host" className="pptx-host mx-auto" />
+    </div>
+  );
+}
+
 function PdfPage({
   doc,
   num,
@@ -303,6 +430,7 @@ export function FileViewer({ url, name, onClose }: { url: string; name: string; 
 
   let body: React.ReactNode;
   if (ext === "pdf") body = <PdfViewer url={url} />;
+  else if (ext === "pptx" || ext === "ppt") body = <PptxViewer url={url} name={name} />;
   else if (OFFICE.includes(ext))
     body = (
       <div className="relative h-full w-full">
