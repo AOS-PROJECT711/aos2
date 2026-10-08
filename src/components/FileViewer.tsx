@@ -55,6 +55,9 @@ function loadPptxjs() {
       await loadScript(`${PPTX_BASE}/js/d3.min.js`);
       await loadScript(`${PPTX_BASE}/js/nv.d3.min.js`);
       await loadScript(`${PPTX_BASE}/js/filereader.min.js`);
+      // pptxjs needs JSZip v2 and force-reloads the page to get it — preload it and set its flag to skip the reload
+      await loadScript("https://cdn.jsdelivr.net/npm/jszip@2.6.1/dist/jszip.min.js");
+      localStorage.setItem("isPPTXjsReLoaded", "yes");
       await loadScript(`${PPTX_BASE}/js/pptxjs.js`);
     })().catch((e) => {
       pptxPromise = null;
