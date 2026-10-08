@@ -93,8 +93,12 @@ function PptxViewer({ url, name }: { url: string; name: string }) {
         input.id = "pptx-hidden-input";
         input.style.display = "none";
         hostRef.current.appendChild(input);
+        // pptxjs only accepts the exact OOXML MIME type — force it from the extension
+        const mime = name.toLowerCase().endsWith(".pptx")
+          ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          : "application/vnd.ms-powerpoint";
         const dt = new DataTransfer();
-        dt.items.add(new File([blob], name, { type: blob.type }));
+        dt.items.add(new File([blob], name, { type: mime }));
         input.files = dt.files;
         const $ = window.jQuery;
         $(hostRef.current).pptxToHtml({
