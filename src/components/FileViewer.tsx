@@ -92,7 +92,8 @@ function PptxViewer({ url, name }: { url: string; name: string }) {
           mediaProcess: true,
         });
         if (!cancelled) setProgress(false);
-      } catch {
+      } catch (e) {
+        console.error("pptx render failed:", e);
         if (!cancelled) setErr(true);
       }
     })();
