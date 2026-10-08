@@ -103,7 +103,7 @@ function PptxViewer({ url, name }: { url: string; name: string }) {
         const $ = window.jQuery;
         $(hostRef.current).pptxToHtml({
           fileInputId: "pptx-hidden-input",
-          jsZipV2: "https://cdn.jsdelivr.net/npm/jszip@2.6.1/dist/jszip.min.js",
+          jsZipV2: false, // v2 is preloaded above; passing a URL makes pptxjs force-reload the page
           slideMode: false,
           keyBoardShortCut: false,
           mediaProcess: true,
