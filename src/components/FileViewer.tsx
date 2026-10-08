@@ -55,6 +55,7 @@ function loadPptxjs() {
       await loadScript("https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js");
       await loadScript(`${PPTX_BASE}/js/d3.min.js`);
       await loadScript(`${PPTX_BASE}/js/nv.d3.min.js`);
+      await loadScript(`${PPTX_BASE}/js/filereader.min.js`);
       await loadScript(`${PPTX_BASE}/js/pptxjs.js`);
     })().catch((e) => {
       pptxPromise = null;
