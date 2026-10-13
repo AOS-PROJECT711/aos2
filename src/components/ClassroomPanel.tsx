@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import QRCode from "react-qr-code";
 import { FileViewer } from "@/components/FileViewer";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -45,6 +46,10 @@ function formatSize(b: number) {
   return `${b.toFixed(1)} ${u[i]}`;
 }
 
+function shareLink(code: string) {
+  return `${window.location.origin}/?room=${code}`;
+}
+
 function CopyCode({ label, code, icon }: { label: string; code: string; icon: React.ReactNode }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -70,7 +75,7 @@ function CopyCode({ label, code, icon }: { label: string; code: string; icon: Re
   );
 }
 
-export function ClassroomPanel() {
+export function ClassroomPanel({ initialCode }: { initialCode?: string | undefined }) {
   const create = useServerFn(createClassroom);
   const open = useServerFn(openClassroom);
   const [mode, setMode] = useState<"join" | "create">("join");
@@ -83,6 +88,18 @@ export function ClassroomPanel() {
   const [error, setError] = useState("");
   const [created, setCreated] = useState<{ viewerCode: string; adminCode: string } | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
+  const autoOpened = useRef(false);
+
+  useEffect(() => {
+    if (initialCode && !autoOpened.current) {
+      autoOpened.current = true;
+      setBusy(true);
+      load(initialCode.toUpperCase())
+        .catch((e) => setError(e instanceof Error ? e.message : "Could not open classroom."))
+        .finally(() => setBusy(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCode]);
 
   async function load(c: string, n?: string) {
     const res = await open({ data: { code: c, name: n } });
@@ -131,6 +148,10 @@ export function ClassroomPanel() {
         <p className="font-semibold">{name} is ready</p>
         <p className="text-sm text-muted-foreground">Save both codes. The admin code can't be recovered.</p>
         <CopyCode label="Receiver code — share with students" code={created.viewerCode} icon={<Users className="h-5 w-5" />} />
+        <div className="flex flex-col items-center rounded-2xl border bg-white p-3">
+          <QRCode value={shareLink(created.viewerCode)} size={140} />
+        </div>
+        <p className="text-xs text-muted-foreground">Students can scan this QR to open the classroom</p>
         <CopyCode label="Admin code — keep private" code={created.adminCode} icon={<KeyRound className="h-5 w-5" />} />
         <button
           onClick={async () => {
@@ -231,6 +252,7 @@ export function ClassroomPanel() {
 
 function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string) => Promise<void>; leave: () => void }) {
   const getUrl = useServerFn(getClassroomUploadUrl);
+  const [showQr, setShowQr] = useState(false);
   const [viewing, setViewing] = useState<{ url: string; name: string } | null>(null);
   const addFile = useServerFn(addClassroomFile);
   const renameFile = useServerFn(renameClassroomFile);
@@ -304,6 +326,17 @@ function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string)
           {room.viewerCode && (
             <CopyCode label="Receiver code — share with students" code={room.viewerCode} icon={<Users className="h-5 w-5" />} />
           )}
+          {showQr && room.viewerCode && (
+            <div className="flex flex-col items-center rounded-2xl border bg-white p-3">
+              <QRCode value={shareLink(room.viewerCode)} size={150} />
+            </div>
+          )}
+          <button
+            onClick={() => setShowQr((s) => !s)}
+            className="w-full rounded-full border py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          >
+            {showQr ? "Hide QR code" : "Show QR code"}
+          </button>
           <button
             onClick={() => {
               const v = prompt("New receiver code (6–10 letters + numbers)", room.viewerCode ?? "")?.trim().toUpperCase();

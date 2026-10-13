@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/aos-logo.png";
+import QRCode from "react-qr-code";
 import { ClassroomPanel } from "@/components/ClassroomPanel";
 import { FileViewer } from "@/components/FileViewer";
 
@@ -47,6 +48,16 @@ function ThemeToggle() {
 }
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    code:
+      typeof search["code"] === "string"
+        ? (search["code"] as string).replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+        : undefined,
+    room:
+      typeof search["room"] === "string"
+        ? (search["room"] as string).replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+        : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "AOS — Share any file with a 6-character code" },
@@ -82,7 +93,10 @@ function formatSize(b: number) {
 }
 
 function Index() {
-  const [tab, setTab] = useState<"send" | "receive" | "classroom">("send");
+  const search = Route.useSearch();
+  const [tab, setTab] = useState<"send" | "receive" | "classroom">(
+    search.room ? "classroom" : search.code ? "receive" : "send",
+  );
   return (
     <div className="min-h-screen bg-background bg-grid">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
@@ -122,7 +136,13 @@ function Index() {
         </div>
 
         <div className="mx-auto mt-4 max-w-xl rounded-3xl border bg-card p-8 shadow-glow">
-          {tab === "send" ? <SendPanel /> : tab === "receive" ? <ReceivePanel /> : <ClassroomPanel />}
+        {tab === "send" ? (
+          <SendPanel />
+        ) : tab === "receive" ? (
+          <ReceivePanel initialCode={search.code} />
+        ) : (
+          <ClassroomPanel initialCode={search.room} />
+        )}
         </div>
 
         <div className="mx-auto mt-8 grid max-w-xl grid-cols-3 text-xs text-muted-foreground">
@@ -217,6 +237,12 @@ function SendPanel() {
             ? `Expires at ${result.expiresAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
             : "Never expires"}
         </p>
+        <div className="mt-5 flex flex-col items-center">
+          <div className="rounded-2xl bg-white p-3">
+            <QRCode value={`${window.location.origin}/?code=${result.code}`} size={160} />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">Or scan this QR to open the files</p>
+        </div>
         <div className="mt-6 flex justify-center gap-3">
           <button
             onClick={() => {
@@ -340,8 +366,8 @@ function SendPanel() {
 
 type FoundFile = { name: string; size: number; url: string; viewUrl: string };
 
-function ReceivePanel() {
-  const [code, setCode] = useState("");
+function ReceivePanel({ initialCode }: { initialCode?: string | undefined }) {
+  const [code, setCode] = useState(initialCode ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<"view" | "download">("download");
