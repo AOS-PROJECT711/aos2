@@ -75,7 +75,7 @@ function CopyCode({ label, code, icon }: { label: string; code: string; icon: Re
   );
 }
 
-export function ClassroomPanel({ initialCode }: { initialCode?: string }) {
+export function ClassroomPanel({ initialCode }: { initialCode?: string | undefined }) {
   const create = useServerFn(createClassroom);
   const open = useServerFn(openClassroom);
   const [mode, setMode] = useState<"join" | "create">("join");

@@ -362,7 +362,7 @@ function SendPanel() {
 
 type FoundFile = { name: string; size: number; url: string; viewUrl: string };
 
-function ReceivePanel({ initialCode }: { initialCode?: string }) {
+function ReceivePanel({ initialCode }: { initialCode?: string | undefined }) {
   const [code, setCode] = useState(initialCode ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
