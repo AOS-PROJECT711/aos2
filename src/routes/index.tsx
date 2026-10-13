@@ -50,9 +50,13 @@ function ThemeToggle() {
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>) => ({
     code:
-      typeof search.code === "string" ? search.code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() : undefined,
+      typeof search["code"] === "string"
+        ? (search["code"] as string).replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+        : undefined,
     room:
-      typeof search.room === "string" ? search.room.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() : undefined,
+      typeof search["room"] === "string"
+        ? (search["room"] as string).replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+        : undefined,
   }),
   head: () => ({
     meta: [
