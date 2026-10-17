@@ -25,11 +25,10 @@ describe("Transfer measurement", () => {
   it("waits for active transfers before reporting a failed batch", async () => {
     let finished = false;
     await expect(parallelTransfers([0, 1], async (item) => {
-      if (item === 0) throw new Error("network failed");
+      if (item === 0) { await Promise.resolve(); throw new Error("network failed"); }
       await new Promise((resolve) => setTimeout(resolve, 5));
       finished = true;
     })).rejects.toThrow("network failed");
-    // The first synchronous failure can stop the second worker before it starts.
-    expect(typeof finished).toBe("boolean");
+    expect(finished).toBe(true);
   });
 });
