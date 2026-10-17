@@ -16,11 +16,14 @@ import {
   X,
   Clock,
   GraduationCap,
+  Type,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/aos-logo.png";
 import QRCode from "react-qr-code";
 import { ClassroomPanel } from "@/components/ClassroomPanel";
+import { TextPanel } from "@/components/TextPanel";
+import { Button } from "@/components/ui/button";
 import { FileViewer } from "@/components/FileViewer";
 import { DownloadFile } from "@/components/DownloadFile";
 import { TransferStatus } from "@/components/TransferStatus";
@@ -99,7 +102,7 @@ function formatSize(b: number) {
 
 function Index() {
   const search = Route.useSearch();
-  const [tab, setTab] = useState<"send" | "receive" | "classroom">(
+  const [tab, setTab] = useState<"send" | "receive" | "classroom" | "text">(
     search.room ? "classroom" : search.code ? "receive" : "send",
   );
   return (
@@ -125,18 +128,21 @@ function Index() {
           Drop a photo, video, PDF or ZIP — up to 5 GB. Share the code. Open it on any device.
         </p>
 
-        <div className="mx-auto mt-10 grid max-w-xl grid-cols-3 gap-1 rounded-full border bg-card p-1">
-          {(["send", "receive", "classroom"] as const).map((t) => (
-            <button
+        <div className="mx-auto mt-10 grid max-w-xl grid-cols-4 gap-1 rounded-full border bg-card p-1">
+          {(["send", "receive", "classroom", "text"] as const).map((t) => (
+            <Button
+              type="button"
+              variant="ghost"
               key={t}
               onClick={() => setTab(t)}
-              className={`flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold capitalize transition ${
+              aria-pressed={tab === t}
+              className={`h-auto min-w-0 flex-col items-center justify-center gap-1 rounded-full px-1 py-2.5 text-[11px] font-semibold capitalize transition sm:flex-row sm:gap-2 sm:text-sm ${
                 tab === t ? "bg-brand text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {t === "send" ? <Upload className="h-4 w-4" /> : t === "receive" ? <Download className="h-4 w-4" /> : <GraduationCap className="h-4 w-4" />}
+              {t === "send" ? <Upload className="h-4 w-4" /> : t === "receive" ? <Download className="h-4 w-4" /> : t === "classroom" ? <GraduationCap className="h-4 w-4" /> : <Type className="h-4 w-4" />}
               {t}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -145,8 +151,10 @@ function Index() {
           <SendPanel />
         ) : tab === "receive" ? (
           <ReceivePanel initialCode={search.code} />
-        ) : (
+        ) : tab === "classroom" ? (
           <ClassroomPanel initialCode={search.room} />
+        ) : (
+          <TextPanel />
         )}
         </div>
 

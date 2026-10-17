@@ -11,3 +11,4 @@
 
 - Classroom access is code-based with no login: all classroom reads/writes go through server functions in src/lib/classroom.functions.ts that verify the admin or receiver code, and the classroom tables/bucket have no public access. Why: codes must be checked server-side so a receiver code can never modify files.
 - Transfer helpers are shared across Send, Receive, and Classroom; uploads use bounded concurrency and direct storage requests, while large downloads stream to disk or delegate to the browser. Why: accurate byte progress must not require proxying files or buffering multi-GB downloads.
+- Text sharing uses a separate code-protected table, hashed random codes, and server functions with no public table access; received content renders as plain text. Why: text must be transferable without exposing message lists or executing pasted markup.
