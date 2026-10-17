@@ -2,3 +2,5 @@
 
 - [x] Add "View only" / "Download" toggle to the Receive panel (receiver-side mode switch)
 - [x] View-only for PDF (no download) and PPTX/Word/Excel
+- [ ] Add live upload/download speed and progress to sharing and classrooms
+- [ ] Improve transfer throughput and verify file transfers
