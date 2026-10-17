@@ -109,6 +109,27 @@ export type Database = {
         }
         Relationships: []
       }
+      text_shares: {
+        Row: {
+          code_hash: string
+          content: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          code_hash: string
+          content: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          code_hash?: string
+          content?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
