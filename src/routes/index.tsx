@@ -22,6 +22,9 @@ import logo from "@/assets/aos-logo.png";
 import QRCode from "react-qr-code";
 import { ClassroomPanel } from "@/components/ClassroomPanel";
 import { FileViewer } from "@/components/FileViewer";
+import { DownloadFile } from "@/components/DownloadFile";
+import { TransferStatus } from "@/components/TransferStatus";
+import { parallelTransfers, transferProgress, uploadFile, type TransferProgress } from "@/lib/transfers";
 
 function ThemeToggle() {
   const [light, setLight] = useState(false);
@@ -60,6 +63,8 @@ export const Route = createFileRoute("/")({
   }),
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "AOS — Share any file with a 6-character code" },
       {
         name: "description",
@@ -178,6 +183,7 @@ function SendPanel() {
   const [expiry, setExpiry] = useState(0);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [transfer, setTransfer] = useState<TransferProgress | null>(null);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ code: string; count: number; expiresAt: Date | null } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -195,16 +201,26 @@ function SendPanel() {
     setError("");
     setBusy(true);
     setProgress(0);
+    const total = files.reduce((sum, file) => sum + file.size, 0);
+    setTransfer(transferProgress(0, total, 0));
     try {
       const code = makeCode();
       const expiresAt = expiry ? new Date(Date.now() + expiry * 60_000) : null;
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]!;
+      const { data: { session } } = await supabase.auth.getSession();
+      const key = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'];
+      const headers: Record<string, string> = { apikey: key, "x-upsert": "false", "cache-control": "max-age=3600" };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const started = performance.now();
+      const loaded = files.map(() => 0);
+      await parallelTransfers(files, async (file, i) => {
         const path = `${code}/${i}-${file.name}`;
-        const { error: upErr } = await supabase.storage.from("shares").upload(path, file, {
-          contentType: file.type || "application/octet-stream",
+        const encoded = path.split("/").map(encodeURIComponent).join("/");
+        await uploadFile(`${import.meta.env['VITE_SUPABASE_URL']}/storage/v1/object/shares/${encoded}`, file, {
+          ...headers, "content-type": file.type || "application/octet-stream",
+        }, (bytes) => {
+          loaded[i] = bytes;
+          setTransfer(transferProgress(loaded.reduce((sum, value) => sum + value, 0), total, performance.now() - started));
         });
-        if (upErr) throw upErr;
         const { error: dbErr } = await supabase.from("shares").insert({
           code,
           file_path: path,
@@ -214,8 +230,8 @@ function SendPanel() {
           expires_at: expiresAt?.toISOString() ?? null,
         });
         if (dbErr) throw dbErr;
-        setProgress(i + 1);
-      }
+        setProgress((count) => count + 1);
+      });
       setResult({ code, count: files.length, expiresAt });
       setFiles([]);
     } catch (e) {
@@ -357,6 +373,7 @@ function SendPanel() {
               </>
             )}
           </button>
+          {transfer && <TransferStatus progress={transfer} label={busy ? "Uploading" : "Uploaded"} />}
         </>
       )}
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
@@ -451,7 +468,7 @@ function ReceivePanel({ initialCode }: { initialCode?: string | undefined }) {
             </button>
           </div>
           {found.files.map((f) => (
-            <div key={f.url} className="flex items-center gap-3 rounded-2xl border bg-background/40 p-3">
+            <div key={f.url} className="flex flex-wrap items-center gap-3 rounded-2xl border bg-background/40 p-3">
               <FileIcon className="h-7 w-7 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold">{f.name}</div>
@@ -470,9 +487,7 @@ function ReceivePanel({ initialCode }: { initialCode?: string | undefined }) {
                       View
                     </button>
                   )}
-                  <a href={f.url} className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground">
-                    Download
-                  </a>
+                  <DownloadFile url={f.url} name={f.name} size={f.size} />
                 </>
               )}
             </div>

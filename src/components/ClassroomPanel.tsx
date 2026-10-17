@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { FileViewer } from "@/components/FileViewer";
+import { DownloadFile } from "@/components/DownloadFile";
+import { TransferStatus } from "@/components/TransferStatus";
+import { parallelTransfers, transferProgress, uploadFile, type TransferProgress } from "@/lib/transfers";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Check,
@@ -15,7 +18,6 @@ import {
   LogOut,
   Plus,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   createClassroom,
   openClassroom,
@@ -253,6 +255,7 @@ export function ClassroomPanel({ initialCode }: { initialCode?: string | undefin
 function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string) => Promise<void>; leave: () => void }) {
   const getUrl = useServerFn(getClassroomUploadUrl);
   const [showQr, setShowQr] = useState(false);
+  const [transfer, setTransfer] = useState<TransferProgress | null>(null);
   const [viewing, setViewing] = useState<{ url: string; name: string } | null>(null);
   const addFile = useServerFn(addClassroomFile);
   const renameFile = useServerFn(renameClassroomFile);
@@ -280,16 +283,27 @@ function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string)
     if (!list?.length) return;
     const files = Array.from(list);
     await run("upload", async () => {
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i]!;
-        setBusy(`upload ${i + 1}/${files.length}`);
+      const started = performance.now();
+      const total = files.reduce((sum, file) => sum + file.size, 0);
+      const loaded = files.map(() => 0);
+      let completed = 0;
+      setTransfer(transferProgress(0, total, 0));
+      await parallelTransfers(files, async (f, i) => {
         const { path, token } = await getUrl({ data: { adminCode: room.code, fileName: f.name } });
-        const { error } = await supabase.storage.from("classrooms").uploadToSignedUrl(path, token, f, {
-          contentType: f.type || "application/octet-stream",
-        });
-        if (error) throw error;
+        const encoded = path.split("/").map(encodeURIComponent).join("/");
+        await uploadFile(`${import.meta.env['VITE_SUPABASE_URL']}/storage/v1/object/upload/sign/classrooms/${encoded}?token=${encodeURIComponent(token)}`, f, {
+          apikey: import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'],
+          "x-upsert": "false",
+          "cache-control": "max-age=3600",
+          "content-type": f.type || "application/octet-stream",
+        }, (bytes) => {
+          loaded[i] = bytes;
+          setTransfer(transferProgress(loaded.reduce((sum, value) => sum + value, 0), total, performance.now() - started));
+        }, "PUT");
         await addFile({ data: { adminCode: room.code, path, name: f.name, size: f.size, mime: f.type || null } });
-      }
+        completed++;
+        setBusy(`upload ${completed}/${files.length}`);
+      });
     });
   }
 
@@ -363,6 +377,7 @@ function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string)
               {busy.startsWith("upload") ? `Uploading ${busy.replace("upload ", "")}…` : "Upload files to classroom"}
             </span>
           </button>
+          {transfer && <TransferStatus progress={transfer} label={busy.startsWith("upload") ? "Uploading" : "Uploaded"} />}
           <input
             ref={input}
             type="file"
@@ -384,7 +399,7 @@ function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string)
       ) : (
         <ul className="max-h-80 space-y-2 overflow-y-auto">
           {room.files.map((f) => (
-            <li key={f.id} className="flex items-center gap-3 rounded-2xl border bg-background/40 p-3">
+            <li key={f.id} className="flex flex-wrap items-center gap-3 rounded-2xl border bg-background/40 p-3">
               <FileIcon className="h-6 w-6 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold">{f.name}</div>
@@ -416,9 +431,7 @@ function RoomView({ room, reload, leave }: { room: Room; reload: (name?: string)
               <button type="button" onClick={() => setViewing({ url: f.viewUrl, name: f.name })} className="rounded-full border px-3 py-1.5 text-xs font-semibold">
                 View
               </button>
-              <a href={f.url} className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground">
-                Download
-              </a>
+              <DownloadFile url={f.url} name={f.name} size={f.size} />
             </li>
           ))}
         </ul>
