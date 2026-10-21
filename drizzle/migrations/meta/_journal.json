@@ -8,6 +8,13 @@
       "when": 1792204265194,
       "tag": "0000_add_text_shares",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792563314402,
+      "tag": "0001_add_text_groups",
+      "breakpoints": true
     }
   ]
 }

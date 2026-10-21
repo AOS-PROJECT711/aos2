@@ -109,6 +109,159 @@ export type Database = {
         }
         Relationships: []
       }
+      text_group_files: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number
+          group_id: string
+          id: string
+          member_id: string
+          mime_type: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size: number
+          group_id: string
+          id?: string
+          member_id: string
+          mime_type: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          group_id?: string
+          id?: string
+          member_id?: string
+          mime_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_group_files_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "text_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "text_group_files_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "text_group_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      text_group_members: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          name: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          name: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          name?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "text_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      text_group_messages: {
+        Row: {
+          content: string
+          created_at: string
+          file_id: string | null
+          group_id: string
+          id: string
+          member_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          file_id?: string | null
+          group_id: string
+          id?: string
+          member_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          file_id?: string | null
+          group_id?: string
+          id?: string
+          member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "text_group_messages_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: true
+            referencedRelation: "text_group_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "text_group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "text_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "text_group_messages_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "text_group_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      text_groups: {
+        Row: {
+          code_hash: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          owner_hash: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          owner_hash: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          owner_hash?: string
+        }
+        Relationships: []
+      }
       text_shares: {
         Row: {
           code_hash: string

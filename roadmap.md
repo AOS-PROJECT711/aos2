@@ -4,5 +4,7 @@
 - [x] View-only for PDF (no download) and PPTX/Word/Excel
 - [x] Add live upload/download speed and progress to sharing and classrooms
 - [x] Improve transfer throughput and verify file transfers
-- [ ] Add fourth Text tab with code-based text sending and receiving
-- [ ] Verify text sharing between devices and mobile layout
+- [x] Add fourth Text tab with code-based text sending and receiving
+- [x] Replace one-time Text sharing with manual-code connected groups for text, photos, and files
+- [x] Remember connected devices and allow only the creator to end the group
+- [x] Verify group exchange, creator-only deletion, and mobile layout
