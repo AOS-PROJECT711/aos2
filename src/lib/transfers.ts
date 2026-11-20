@@ -59,12 +59,3 @@ export function saveBlob(blob: Blob, name: string) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
-
-export async function deliverBlob(blob: Blob, name: string) {
-  const file = new File([blob], name, { type: blob.type });
-  if (matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: name }); return; }
-    catch (error) { if (error instanceof DOMException && error.name === "AbortError") return; }
-  }
-  saveBlob(blob, name);
-}

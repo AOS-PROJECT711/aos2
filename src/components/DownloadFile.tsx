@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Download, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TransferStatus } from "@/components/TransferStatus";
-import { deliverBlob, saveBlob, transferProgress, type TransferProgress } from "@/lib/transfers";
+import { saveBlob, transferProgress, type TransferProgress } from "@/lib/transfers";
 
 type DiskWriter = { write: (chunk: Uint8Array) => Promise<void>; close: () => Promise<void>; abort: () => Promise<void> };
 type SaveWindow = Window & { showSaveFilePicker?: (options: { suggestedName: string }) => Promise<{ createWritable: () => Promise<DiskWriter> }> };
@@ -10,14 +10,12 @@ type SaveWindow = Window & { showSaveFilePicker?: (options: { suggestedName: str
 export function DownloadFile({ url, name, size }: { url: string; name: string; size: number }) {
   const [progress, setProgress] = useState<TransferProgress | null>(null);
   const [busy, setBusy] = useState(false);
-  const [ready, setReady] = useState<Blob | null>(null);
   const [error, setError] = useState("");
   const [native, setNative] = useState(false);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
 
   async function download() {
-    if (ready) { await deliverBlob(ready, name); return; }
     const picker = (window as SaveWindow).showSaveFilePicker;
     // Large files stream straight to disk where supported, never into a multi-GB Blob.
     if (size > 128 * 1024 * 1024 && !picker) {
@@ -54,8 +52,7 @@ export function DownloadFile({ url, name, size }: { url: string; name: string; s
       if (writer) await writer.close();
       else {
         const blob = new Blob(chunks, { type: response.headers.get("Content-Type") || "application/octet-stream" });
-        setReady(blob);
-        if (!matchMedia("(pointer: coarse)").matches) saveBlob(blob, name);
+        saveBlob(blob, name);
       }
     } catch (e) {
       await writer?.abort().catch(() => undefined);
@@ -68,7 +65,7 @@ export function DownloadFile({ url, name, size }: { url: string; name: string; s
     <div className="min-w-0">
       <div className="flex items-center justify-end gap-1">
         <Button type="button" size="sm" disabled={busy} onClick={download} className="rounded-full bg-brand text-primary-foreground">
-          {busy ? <Loader2 className="animate-spin" /> : <Download />}{busy ? "Downloading" : ready ? "Save file" : "Download"}
+          {busy ? <Loader2 className="animate-spin" /> : <Download />}{busy ? "Downloading" : "Download"}
         </Button>
         {busy && <Button type="button" size="icon" variant="ghost" aria-label={`Cancel download of ${name}`} onClick={() => controller.current?.abort()}><X /></Button>}
       </div>
