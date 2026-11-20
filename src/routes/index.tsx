@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import {
   Upload,
@@ -28,6 +29,7 @@ import { FileViewer } from "@/components/FileViewer";
 import { DownloadFile } from "@/components/DownloadFile";
 import { TransferStatus } from "@/components/TransferStatus";
 import { parallelTransfers, transferProgress, uploadFile, type TransferProgress } from "@/lib/transfers";
+import { findShareFiles, prepareShareUpload } from "@/lib/shares.functions";
 
 function ThemeToggle() {
   const [light, setLight] = useState(false);
@@ -185,6 +187,7 @@ const EXPIRY = [
 ];
 
 function SendPanel() {
+  const prepareUpload = useServerFn(prepareShareUpload);
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -214,24 +217,24 @@ function SendPanel() {
     try {
       const code = makeCode();
       const expiresAt = expiry ? new Date(Date.now() + expiry * 60_000) : null;
-      const { data: { session } } = await supabase.auth.getSession();
-      const key = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'];
-      const headers: Record<string, string> = { apikey: key, "x-upsert": "false", "cache-control": "max-age=3600" };
-      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
       const started = performance.now();
       const loaded = files.map(() => 0);
       await parallelTransfers(files, async (file, i) => {
-        const path = `${code}/${i}-${file.name}`;
-        const encoded = path.split("/").map(encodeURIComponent).join("/");
-        await uploadFile(`${import.meta.env['VITE_SUPABASE_URL']}/storage/v1/object/shares/${encoded}`, file, {
-          ...headers, "content-type": file.type || "application/octet-stream",
+        const prepared = await prepareUpload({
+          data: { code, fileName: file.name, fileSize: file.size, mimeType: file.type || "application/octet-stream" },
+        });
+        await uploadFile(prepared.url, file, {
+          apikey: import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"],
+          "x-upsert": "false",
+          "cache-control": "max-age=3600",
+          "content-type": file.type || "application/octet-stream",
         }, (bytes) => {
           loaded[i] = bytes;
           setTransfer(transferProgress(loaded.reduce((sum, value) => sum + value, 0), total, performance.now() - started));
-        });
+        }, "PUT");
         const { error: dbErr } = await supabase.from("shares").insert({
           code,
-          file_path: path,
+          file_path: prepared.path,
           file_name: file.name,
           file_size: file.size,
           mime_type: file.type || null,
@@ -392,6 +395,7 @@ function SendPanel() {
 type FoundFile = { name: string; size: number; url: string; viewUrl: string };
 
 function ReceivePanel({ initialCode }: { initialCode?: string | undefined }) {
+  const fetchShareFiles = useServerFn(findShareFiles);
   const [code, setCode] = useState(initialCode ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -404,26 +408,15 @@ function ReceivePanel({ initialCode }: { initialCode?: string | undefined }) {
     setError("");
     setFound(null);
     setBusy(true);
-    const { data, error: err } = await supabase
-      .from("shares")
-      .select("file_path, file_name, file_size, expires_at")
-      .eq("code", code.toUpperCase())
-      .order("created_at");
-    if (err || !data?.length) {
+    try {
+      const result = await fetchShareFiles({ data: { code: code.toUpperCase() } });
+      if (!result.files.length) return setError("No files found — the code is wrong or has expired.");
+      setFound(result);
+    } catch {
+      setError("No files found — the code is wrong or has expired.");
+    } finally {
       setBusy(false);
-      return setError("No files found — the code is wrong or has expired.");
     }
-    const files: FoundFile[] = [];
-    for (const row of data) {
-      const { data: signed } = await supabase.storage
-        .from("shares")
-        .createSignedUrl(row.file_path, 3600, { download: row.file_name });
-      const { data: view } = await supabase.storage.from("shares").createSignedUrl(row.file_path, 3600);
-      if (signed) files.push({ name: row.file_name, size: row.file_size, url: signed.signedUrl, viewUrl: view?.signedUrl ?? "" });
-    }
-    setBusy(false);
-    if (!files.length) return setError("Could not open these files.");
-    setFound({ files, expiresAt: data[0]?.expires_at ?? null });
   }
 
   return (
