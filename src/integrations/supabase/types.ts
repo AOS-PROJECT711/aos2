@@ -76,6 +76,53 @@ export type Database = {
         }
         Relationships: []
       }
+      received_share_history: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      share_ownership: {
+        Row: {
+          created_at: string
+          owner_id: string
+          share_id: string
+        }
+        Insert: {
+          created_at?: string
+          owner_id: string
+          share_id: string
+        }
+        Update: {
+          created_at?: string
+          owner_id?: string
+          share_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_ownership_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: true
+            referencedRelation: "shares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shares: {
         Row: {
           code: string
@@ -86,6 +133,7 @@ export type Database = {
           file_size: number
           id: string
           mime_type: string | null
+          owner_id: string | null
         }
         Insert: {
           code: string
@@ -96,6 +144,7 @@ export type Database = {
           file_size?: number
           id?: string
           mime_type?: string | null
+          owner_id?: string | null
         }
         Update: {
           code?: string
@@ -106,6 +155,7 @@ export type Database = {
           file_size?: number
           id?: string
           mime_type?: string | null
+          owner_id?: string | null
         }
         Relationships: []
       }
