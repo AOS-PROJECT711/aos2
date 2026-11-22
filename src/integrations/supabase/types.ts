@@ -97,6 +97,27 @@ export type Database = {
         }
         Relationships: []
       }
+      share_code_ownership: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string | null
+          owner_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          owner_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          owner_id?: string
+        }
+        Relationships: []
+      }
       share_ownership: {
         Row: {
           created_at: string
