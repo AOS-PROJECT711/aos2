@@ -8,10 +8,12 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { supabase } from "@/integrations/supabase/client";
+import { AccountSessionContext, type AccountSession } from "@/lib/auth-context";
 
 function NotFoundComponent() {
   return (
@@ -115,11 +117,37 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [session, setSession] = useState<AccountSession>({ user: null, ready: false });
+
+  useEffect(() => {
+    let active = true;
+    let receivedAuthEvent = false;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (!["INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT", "USER_UPDATED", "PASSWORD_RECOVERY"].includes(event)) return;
+      receivedAuthEvent = true;
+      setSession({ user: currentSession?.user ?? null, ready: true });
+    });
+
+    void supabase.auth.getUser().then(({ data, error }) => {
+      if (active && !receivedAuthEvent) {
+        setSession({ user: error ? null : data.user, ready: true });
+      }
+    }).catch(() => {
+      if (active && !receivedAuthEvent) setSession({ user: null, ready: true });
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
-    </QueryClientProvider>
+    <AccountSessionContext.Provider value={session}>
+      <QueryClientProvider client={queryClient}>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </QueryClientProvider>
+    </AccountSessionContext.Provider>
   );
 }

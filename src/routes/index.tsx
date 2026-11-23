@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -18,8 +19,18 @@ import {
   Clock,
   GraduationCap,
   Type,
+  History,
+  LogOut,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccountSession } from "@/lib/auth-context";
+import {
+  claimOwnedShareCode,
+  completeGuestShareUpload,
+  completeOwnedShareUpload,
+  prepareOwnedShareUpload,
+  saveReceivedShareCode,
+} from "@/lib/account.functions";
 import logo from "@/assets/aos-logo.png";
 import QRCode from "react-qr-code";
 import { ClassroomPanel } from "@/components/ClassroomPanel";
@@ -52,6 +63,46 @@ function ThemeToggle() {
     >
       {light ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
     </button>
+  );
+}
+
+function AccountControls() {
+  const { user, ready } = useAccountSession();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [error, setError] = useState("");
+
+  async function signOut() {
+    setError("");
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      setError("Could not sign out. Please try again.");
+      return;
+    }
+    await navigate({ to: "/", replace: true });
+  }
+
+  if (!ready) return null;
+  return (
+    <div className="flex items-center gap-1">
+      {user ? (
+        <>
+          <Button asChild type="button" variant="ghost" size="icon" aria-label="Account history" title="Account history">
+            <Link to="/history"><History /></Link>
+          </Button>
+          <Button type="button" variant="ghost" size="icon" aria-label="Sign out" title="Sign out" onClick={signOut}>
+            <LogOut />
+          </Button>
+        </>
+      ) : (
+        <Button asChild type="button" variant="outline" size="sm">
+          <Link to="/auth">Sign in</Link>
+        </Button>
+      )}
+      {error && <span className="sr-only" role="status">{error}</span>}
+    </div>
   );
 }
 
@@ -119,7 +170,10 @@ function Index() {
             </div>
           </div>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <AccountControls />
+          <ThemeToggle />
+        </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-6 pb-20 pt-10 text-center">
@@ -187,7 +241,12 @@ const EXPIRY = [
 ];
 
 function SendPanel() {
+  const { user } = useAccountSession();
   const prepareUpload = useServerFn(prepareShareUpload);
+  const claimCode = useServerFn(claimOwnedShareCode);
+  const prepareOwnedUpload = useServerFn(prepareOwnedShareUpload);
+  const completeOwnedUpload = useServerFn(completeOwnedShareUpload);
+  const completeGuestUpload = useServerFn(completeGuestShareUpload);
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -196,7 +255,7 @@ function SendPanel() {
   const [progress, setProgress] = useState(0);
   const [transfer, setTransfer] = useState<TransferProgress | null>(null);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ code: string; count: number; expiresAt: Date | null } | null>(null);
+  const [result, setResult] = useState<{ code: string; count: number; expiresAt: Date | null; owned: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
   function add(list: FileList | null) {
@@ -217,12 +276,14 @@ function SendPanel() {
     try {
       const code = makeCode();
       const expiresAt = expiry ? new Date(Date.now() + expiry * 60_000) : null;
+      if (user) await claimCode({ data: { code, expiresAt: expiresAt?.toISOString() ?? null } });
       const started = performance.now();
       const loaded = files.map(() => 0);
       await parallelTransfers(files, async (file, i) => {
-        const prepared = await prepareUpload({
-          data: { code, fileName: file.name, fileSize: file.size, mimeType: file.type || "application/octet-stream" },
-        });
+        const uploadData = { code, fileName: file.name, fileSize: file.size, mimeType: file.type || "application/octet-stream" };
+        const prepared = user
+          ? await prepareOwnedUpload({ data: uploadData })
+          : await prepareUpload({ data: uploadData });
         await uploadFile(prepared.url, file, {
           apikey: import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"],
           "x-upsert": "false",
@@ -232,18 +293,14 @@ function SendPanel() {
           loaded[i] = bytes;
           setTransfer(transferProgress(loaded.reduce((sum, value) => sum + value, 0), total, performance.now() - started));
         }, "PUT");
-        const { error: dbErr } = await supabase.from("shares").insert({
-          code,
-          file_path: prepared.path,
-          file_name: file.name,
-          file_size: file.size,
-          mime_type: file.type || null,
-          expires_at: expiresAt?.toISOString() ?? null,
-        });
-        if (dbErr) throw dbErr;
+        if (user) {
+          await completeOwnedUpload({ data: { ...uploadData, path: prepared.path } });
+        } else {
+          await completeGuestUpload({ data: { ...uploadData, path: prepared.path, expiresAt: expiresAt?.toISOString() ?? null } });
+        }
         setProgress((count) => count + 1);
       });
-      setResult({ code, count: files.length, expiresAt });
+      setResult({ code, count: files.length, expiresAt, owned: Boolean(user) });
       setFiles([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Please try again.");
@@ -264,6 +321,7 @@ function SendPanel() {
             ? `Expires at ${result.expiresAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
             : "Never expires"}
         </p>
+        {result.owned && <p className="mt-2 text-sm text-primary">Saved to your account history.</p>}
         <div className="mt-5 flex flex-col items-center">
           <div className="rounded-2xl bg-white p-3">
             <QRCode value={`${window.location.origin}/?code=${result.code}`} size={160} />
@@ -286,6 +344,11 @@ function SendPanel() {
             Send more
           </button>
         </div>
+        {result.owned && (
+          <Button asChild type="button" variant="link" className="mt-2">
+            <Link to="/history">Manage this share</Link>
+          </Button>
+        )}
       </div>
     );
 
@@ -395,7 +458,9 @@ function SendPanel() {
 type FoundFile = { name: string; size: number; url: string; viewUrl: string };
 
 function ReceivePanel({ initialCode }: { initialCode?: string | undefined }) {
+  const { user } = useAccountSession();
   const fetchShareFiles = useServerFn(findShareFiles);
+  const saveReceivedCode = useServerFn(saveReceivedShareCode);
   const [code, setCode] = useState(initialCode ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -411,6 +476,13 @@ function ReceivePanel({ initialCode }: { initialCode?: string | undefined }) {
     try {
       const result = await fetchShareFiles({ data: { code: code.toUpperCase() } });
       if (!result.files.length) return setError("No files found — the code is wrong or has expired.");
+      if (user) {
+        try {
+          await saveReceivedCode({ data: { code: code.toUpperCase() } });
+        } catch {
+          // Receiving still works if the optional history write is unavailable.
+        }
+      }
       setFound(result);
     } catch {
       setError("No files found — the code is wrong or has expired.");
