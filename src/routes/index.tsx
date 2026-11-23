@@ -81,7 +81,7 @@ function AccountControls() {
       setError("Could not sign out. Please try again.");
       return;
     }
-    await navigate({ to: "/", replace: true });
+    await navigate({ to: "/", search: { code: undefined, room: undefined }, replace: true });
   }
 
   if (!ready) return null;
